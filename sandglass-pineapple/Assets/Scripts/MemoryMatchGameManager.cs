@@ -3,131 +3,70 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class MemoryMatchGameManager : MonoBehaviour
 {
-    public static MemoryMatchGameManager Instance;
+    public static MemoryMatchGameManager Instance { get; private set; }
 
-    [Header("Game Settings")]
-    public int rows = 2;
-    public int columns = 2;
+    [Header("Grid Stuff")]
+    public int rows = 2, columns = 2;
+    [SerializeField] GameObject cardPrefab;
+    [SerializeField] Transform gridParent;
+    [SerializeField] GridLayoutGroup gridLayout;
 
-    [Header("UI Elements")]
-    public Image timerBar;
-    public GameObject winPanel, loosePanel, nextBtnPopup;
-    public GameObject levelSelectionPanel, gameplayPanal;
-    public TextMeshProUGUI gamePlayCurrentScore;
-    public TextMeshProUGUI gamePlayBestScore;
-    public TextMeshProUGUI winpanalBestScore;
-    public TextMeshProUGUI winPanelCurrentScore;
-    public GameObject saveGamePopup;
-    public Button saveGameYesBtn, saveGameNoBtn;
+    [Header("Sprites")]
+    [SerializeField] List<Sprite> cardFronts;
+    [SerializeField] List<Sprite> cardCovers;
 
-    private bool isGameLoading = false;
+    [Header("Timing")]
+    [SerializeField] float secondsPerPair = 15f;
+    float gameDuration;          // total time for this round
+    float timer;                 // countdown
+    bool hasGameEnded = true;
 
+    /* ---------- public events for the UI layer ---------- */
+    public static event Action<int> OnScoreChanged;
+    public static event Action<float> OnTimerChanged;     // passes fillAmount 0‑1
+    public static event Action<bool> OnGameEnded;        // true = win, false = lose
+    public static Action SetColliderMessage;       // for card controller to disable collider temporarily
 
-    [Header("Game Objects")]
-    public GameObject cardPrefab;
-    public Transform gridParent;
-    public GridLayoutGroup gridLayoutGroup;
+    /* ---------- runtime vars ---------- */
+    readonly List<CardController> cards = new();
+    CardController firstCard, secondCard;
+    int currentScore = 0;
 
-    [Header("Card Sprites")]
-    public List<Sprite> cardSprites;
-    public List<Sprite> cardCover;
-
-    public static Action SetColliderMessage;
-
-    public Transform winPanalCenterPos, winPanalDownPos;
-    public GameObject particaleEffect;
-    public List<Transform> popUpStarts;
-
-    private List<CardController> activeCards = new List<CardController>();
-    private CardController firstSelectedCard;
-    private CardController secondSelectedCard;
-
-    [SerializeField] private float gameDuration = 60f;
-    private float timer;
-    private bool hasGameEnded = true, handTuterial;
-    private int currentScore = 0;
-
-    [SerializeField] private ExtraVeribals audioFile;
-    private AudioSource audioSource;
-
-    private void Awake()
+    /* ---------- life‑cycle ---------- */
+    void Awake()
     {
-        audioSource = GetComponent<AudioSource>();
-        if (Instance == null)
-        {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            Destroy(gameObject);
-        }
+        if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
+        else { Destroy(gameObject); }
+        Debug.unityLogger.logEnabled = false;
     }
 
-    private void Start()
+    void Update()
     {
-        levelSelectionPanel.SetActive(true);
-        gameplayPanal.SetActive(false);
-        winPanel.SetActive(false);
-        loosePanel.SetActive(false);
-        timerBar.gameObject.SetActive(false);
-        saveGamePopup.SetActive(false); // default hidden
-
-        gamePlayBestScore.text = PlayerPrefs.GetInt("BestScore", 0).ToString();
-        winpanalBestScore.text = gamePlayBestScore.text;
-
-        if (audioFile.bgmusic)
-        {
-            audioSource.clip = audioFile.bgmusic;
-            audioSource.loop = true;
-            audioSource.Play();
-        }
-
-        // Check for saved game
-        if (PlayerPrefs.HasKey("SavedGame"))
-        {
-            saveGamePopup.SetActive(true);
-            saveGameYesBtn.onClick.AddListener(() => {
-                saveGamePopup.SetActive(false);
-                LoadGame();
-            });
-
-            saveGameNoBtn.onClick.AddListener(() => {
-                saveGamePopup.SetActive(false);
-                PlayerPrefs.DeleteKey("SavedGame"); // clear old data
-            });
-        }
+        if (hasGameEnded) return;
+        timer -= Time.deltaTime;
+        OnTimerChanged?.Invoke(timer / gameDuration);
+        if (timer <= 0f) EndRound(false);
     }
 
+    /* ===================  PUBLIC API  =================== */
 
-    private void Update()
+    public void StartLevel(int r, int c)
     {
-        UpdateTimer();
-    }
-
-    public void SetupAndStartGame(/*int _rows, int _columns*/)
-    {
+        rows = r; columns = c;
         currentScore = 0;
-        PlayAudio(audioFile.seleteLevel);
-        /*rows = _rows;
-        columns = _columns;*/
-        SetGameDuration(rows * columns / 2);
-        GameStartFunction();
+        gameDuration = (rows * columns / 2f) * secondsPerPair;
+        BuildBoard();
+        hasGameEnded = false;
+        timer = gameDuration;
+        OnScoreChanged?.Invoke(currentScore);
     }
+
     public void SaveGame()
     {
-        // 1. Delete old saved data if it exists
-        if (PlayerPrefs.HasKey("SavedGame"))
-        {
-            PlayerPrefs.DeleteKey("SavedGame");
-        }
-
-        // 2. Prepare fresh save data
-        SaveData data = new SaveData
+        SaveData data = new()
         {
             rows = rows,
             columns = columns,
@@ -135,372 +74,177 @@ public class MemoryMatchGameManager : MonoBehaviour
             timeLeft = timer,
             cards = new List<CardSaveData>()
         };
-
-        foreach (CardController card in activeCards)
+        foreach (var cc in cards)
         {
-            if (card == null) continue;
-            CardSaveData cardData = new CardSaveData
+            data.cards.Add(new CardSaveData
             {
-                cardID = card.CardID,
-                spriteName = card.cardSpriteRenderer.sprite.name,
-                isFlipped = card.cardCoverSprit.gameObject.activeSelf == false,
-                isMatched = card.IsResolved
-            };
-            data.cards.Add(cardData);
+                cardID = cc.CardID,
+                spriteName = cc.frontSprite.name,
+                isMatched = cc.IsResolved
+            });
         }
-
-        // 3. Serialize and save
-        string json = JsonUtility.ToJson(data);
-        PlayerPrefs.SetString("SavedGame", json);
+        PlayerPrefs.SetString("SavedGame", JsonUtility.ToJson(data));
         PlayerPrefs.Save();
     }
-
-
 
     public void LoadGame()
     {
         if (!PlayerPrefs.HasKey("SavedGame")) return;
-
-        string json = PlayerPrefs.GetString("SavedGame");
-        SaveData data = JsonUtility.FromJson<SaveData>(json);
-        if (data == null) return;
-
-        isGameLoading = true;
+        SaveData data = JsonUtility.FromJson<SaveData>(PlayerPrefs.GetString("SavedGame"));
         rows = data.rows;
         columns = data.columns;
         currentScore = data.currentScore;
+        gameDuration = (rows * columns / 2f) * secondsPerPair;
         timer = data.timeLeft;
-
-        gamePlayCurrentScore.text = currentScore.ToString();
-        levelSelectionPanel.SetActive(false);
-        gameplayPanal.SetActive(true);
-        winPanel.SetActive(false);
-        loosePanel.SetActive(false);
-        nextBtnPopup.SetActive(false);
-        timerBar.gameObject.SetActive(true);
-
-        ClearBoard(); // clean before loading
-
-        SetupBoardLayout();
-        List<CardController> cardList = new List<CardController>();
-
-        foreach (CardSaveData cardData in data.cards)
-        {
-            Sprite frontSprite = cardSprites.Find(s => s.name == cardData.spriteName);
-            CardController card = Instantiate(cardPrefab, gridParent).GetComponent<CardController>();
-            card.InitializeCard(cardData.cardID, frontSprite, this, cardCover[0]);
-            card.SetCardState(cardData.isFlipped, cardData.isMatched);
-            cardList.Add(card);
-        }
-
-        activeCards.AddRange(cardList);
-        isGameLoading = false;
-    }
-
-
-    private void SetGameDuration(int numberOfPairs)
-    {
-        gameDuration = numberOfPairs * 15f;
-    }
-
-    public void GameStartFunction()
-    {
+        BuildBoard(data);                    // restore board state
         hasGameEnded = false;
-        gamePlayCurrentScore.text = currentScore.ToString();
-        levelSelectionPanel.SetActive(false);
-        gameplayPanal.SetActive(true);
-        winPanel.SetActive(false);
-        loosePanel.SetActive(false);
-        nextBtnPopup.SetActive(false);
-
-        InitializeGame();
+        OnScoreChanged?.Invoke(currentScore);
     }
 
-    private void InitializeGame()
-    {
-        SuffelSpriteList(cardCover);
-        ClearBoard();
-        timerBar.gameObject.SetActive(true);
-
-        int numberOfPairs = (rows * columns) / 2;
-        if (numberOfPairs > cardSprites.Count) return;
-
-        SetupBoardLayout();
-        List<CardController> cardList = GenerateCardPairs(numberOfPairs);
-        ShuffleCards(cardList);
-        activeCards.AddRange(cardList);
-        timer = gameDuration;
-    }
-
-    /// <summary>
-    /// Calculates a pixel‑perfect, square cell size that honours the GridLayoutGroup’s
-    /// padding & spacing, then applies it – without changing the parent RectTransform.
-    /// </summary>
-    private void SetupBoardLayout()
-    {
-        if (rows <= 0 || columns <= 0) return;                       // safety
-
-        // ----- 1.  Cache references & shorthand -----
-        RectTransform gridRT = gridParent.GetComponent<RectTransform>();
-        GridLayoutGroup glg = gridLayoutGroup;
-        float spacing = glg.spacing.x;                      // assumed uniform
-        Rect rect = gridRT.rect;
-
-        // ----- 2.  Calculate the “usable” width & height inside the padding -----
-        float usableWidth = rect.width - glg.padding.left - glg.padding.right;
-        float usableHeight = rect.height - glg.padding.top - glg.padding.bottom;
-
-        // ----- 3.  Subtract total spacing that will sit BETWEEN cells -----
-        usableWidth -= spacing * (columns - 1);
-        usableHeight -= spacing * (rows - 1);
-
-        // ----- 4.  Derive the maximum square cell size that fits in both axes -----
-        float maxCellW = usableWidth / columns;
-        float maxCellH = usableHeight / rows;
-        int cellSize = Mathf.FloorToInt(Mathf.Min(maxCellW, maxCellH)); // round for crisp pixels
-
-        // ----- 5.  Push values into GridLayoutGroup -----
-        glg.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        glg.constraintCount = columns;
-        glg.cellSize = new Vector2(cellSize, cellSize);
-
-        // OPTIONAL polish: centre leftover slack evenly (nice when cellSize < maxCell on one axis)
-        Vector2 newPadding = new Vector2(
-            rect.width - (cellSize * columns + spacing * (columns - 1)),
-            rect.height - (cellSize * rows + spacing * (rows - 1))
-        );
-
-        // keep original padding ratios while centering
-        float padLeft = glg.padding.left + newPadding.x * 0.5f;
-        float padRight = glg.padding.right + newPadding.x * 0.5f;
-        float padTop = glg.padding.top + newPadding.y * 0.5f;
-        float padBottom = glg.padding.bottom + newPadding.y * 0.5f;
-        glg.padding = new RectOffset(
-            Mathf.RoundToInt(padLeft),
-            Mathf.RoundToInt(padRight),
-            Mathf.RoundToInt(padTop),
-            Mathf.RoundToInt(padBottom)
-        );
-    }
-
-
-
-    private List<CardController> GenerateCardPairs(int numberOfPairs)
-    {
-        List<CardController> cardList = new List<CardController>();
-        for (int i = 0; i < numberOfPairs; i++)
-        {
-            for (int j = 0; j < 2; j++)
-            {
-                CardController card = Instantiate(cardPrefab, gridParent).GetComponent<CardController>();
-                card.InitializeCard(i, cardSprites[i], this, cardCover[0]);
-                cardList.Add(card);
-            }
-        }
-        return cardList;
-    }
-
-    private void ShuffleCards(List<CardController> cards)
-    {
-        for (int i = 0; i < cards.Count; i++)
-        {
-            int r = UnityEngine.Random.Range(0, cards.Count);
-            CardController tmp = cards[i];
-            cards[i] = cards[r];
-            cards[r] = tmp;
-        }
-    }
-
-    private void SuffelSpriteList(List<Sprite> sprites)
-    {
-        for (int i = 0; i < sprites.Count; i++)
-        {
-            int r = UnityEngine.Random.Range(0, sprites.Count);
-            Sprite tmp = sprites[i];
-            sprites[i] = sprites[r];
-            sprites[r] = tmp;
-        }
-    }
+    /* ===================  GAMEPLAY  =================== */
 
     public void OnCardSelected(CardController card)
     {
-        if (secondSelectedCard != null) return;
+        if (hasGameEnded || secondCard != null) return;
+
         card.FlipCard();
-        PlayAudio(audioFile.tap);
-        if (firstSelectedCard == null)
-        {
-            firstSelectedCard = card;
-        }
+
+        if (firstCard == null) firstCard = card;
         else
         {
-            secondSelectedCard = card;
-            StartCoroutine(ValidateMatch(firstSelectedCard, secondSelectedCard));
+            secondCard = card;
+            StartCoroutine(CheckMatch());
         }
     }
 
-    private IEnumerator ValidateMatch(CardController card1, CardController card2)
+    IEnumerator CheckMatch()
     {
         yield return new WaitForSeconds(0.4f);
-        if (card1.CardID == card2.CardID)
+
+        if (firstCard.CardID == secondCard.CardID)
         {
-            card1.ResolveCard();
-            card2.ResolveCard();
-            PlayAudio(audioFile.pop1Sound);
-            currentScore += 1;
-            gamePlayCurrentScore.text = currentScore.ToString();
-            if (currentScore > PlayerPrefs.GetInt("BestScore", 0))
+            firstCard.ResolveCard();
+            secondCard.ResolveCard();
+            currentScore++;
+            OnScoreChanged?.Invoke(currentScore);
+            if (AllCardsMatched()) EndRound(true);
+        }
+        else
+        {
+            firstCard.FlipBack();
+            secondCard.FlipBack();
+        }
+
+        firstCard = secondCard = null;
+    }
+
+    /* ===================  HELPERS  =================== */
+
+    void BuildBoard(SaveData restoreData = null)
+    {
+        ClearBoard();
+        GridUtility.FitSquareGrid(gridLayout, rows, columns);
+
+        List<CardController> spawnedCards = new();
+
+        if (restoreData == null)
+        {
+            spawnedCards = GenerateNewCards();
+        }
+        else
+        {
+            spawnedCards = RestoreSavedCards(restoreData);
+        }
+
+        OrderCardsInGrid(spawnedCards);
+        cards.AddRange(spawnedCards);
+    }
+
+    void ClearBoard()
+    {
+        foreach (Transform child in gridParent)
+            Destroy(child.gameObject);
+
+        cards.Clear();
+    }
+
+    List<CardController> GenerateNewCards()
+    {
+        int pairs = (rows * columns) / 2;
+        List<CardController> cardList = new();
+
+        for (int i = 0; i < pairs; i++)
+        {
+            for (int j = 0; j < 2; j++)
             {
-                PlayerPrefs.SetInt("BestScore", currentScore);
-                gamePlayBestScore.text = currentScore.ToString();
+                var card = SpawnCard(i, cardFronts[i]);
+                cardList.Add(card);
             }
         }
-        else
-        {
-            PlayAudio(audioFile.unmatch);
-            card1.FlipBack();
-            card2.FlipBack();
-        }
-        StartCoroutine(CardsColliderController());
+
+        Shuffle(cardList);
+        return cardList;
     }
 
-    public IEnumerator CardsColliderController()
+    List<CardController> RestoreSavedCards(SaveData data)
     {
-        SetColliderMessage?.Invoke();
-        yield return new WaitForSeconds(0.4f);
-        firstSelectedCard = null;
-        secondSelectedCard = null;
-        CheckWinCondition();
+        List<CardController> restored = new();
+
+        foreach (var c in data.cards)
+        {
+            Sprite front = cardFronts.Find(s => s.name == c.spriteName);
+            var card = SpawnCard(c.cardID, front);
+            card.SetCardState(false, c.isMatched);
+            restored.Add(card);
+        }
+
+        return restored;
     }
 
-    private void CheckWinCondition()
+    void OrderCardsInGrid(List<CardController> cardList)
     {
-        foreach (CardController c in activeCards)
-        {
-            if (!c.IsResolved) return;
-        }
-        DisplayEndGameMessage(true);
+        for (int i = 0; i < cardList.Count; i++)
+            cardList[i].transform.SetSiblingIndex(i);
     }
 
-    private void DisplayEndGameMessage(bool isWin)
+    CardController SpawnCard(int id, Sprite front)
     {
-        if (PlayerPrefs.HasKey("SavedGame"))
+        var go = Instantiate(cardPrefab, gridParent);
+        var card = go.GetComponent<CardController>();
+        card.InitializeCard(id, front, this,cardCovers[0]);
+        return card;
+    }
+
+    void Shuffle<T>(List<T> list)
+    {
+        for (int i = 0; i < list.Count; i++)
         {
-            PlayerPrefs.DeleteKey("SavedGame");
+            int r = UnityEngine.Random.Range(i, list.Count);
+            (list[i], list[r]) = (list[r], list[i]);
         }
+    }
+
+
+    bool AllCardsMatched()
+    {
+        foreach (var c in cards) if (!c.IsResolved) return false;
+        return true;
+    }
+
+    void EndRound(bool win)
+    {
         hasGameEnded = true;
-        timerBar.gameObject.SetActive(false);
-        timer = 0f;
-        if (isWin)
-        {
-            WinFunction();
-        }
-        else
-        {
-            loosePanel.SetActive(true);
-            PlayAudio(audioFile.bellAudio);
-        }
-        EndGame();
+        OnGameEnded?.Invoke(win);
+        PlayerPrefs.DeleteKey("SavedGame");
     }
 
-    private void EndGame()
+    /* ++ utility helpers ++ */
+    static void Shuffle<T>(IList<T> list)
     {
-        SuffelSpriteList(cardSprites);
-        SuffelSpriteList(cardCover);
-        ClearBoard();
-    }
-
-    private void ClearBoard()
-    {
-        foreach (CardController c in activeCards)
+        for (int i = 0; i < list.Count; i++)
         {
-            if (c != null) Destroy(c.gameObject);
-        }
-        activeCards.Clear();
-    }
-
-    private void UpdateTimer()
-    {
-        if (timer > 0f)
-        {
-            timer -= Time.deltaTime;
-            timerBar.fillAmount = timer / gameDuration;
-           // if (timer <= 10f && !audioSource.isPlaying) PlayAudio(audioFile.countDown);
-        }
-        else if (!hasGameEnded)
-        {
-            DisplayEndGameMessage(false);
+            int r = UnityEngine.Random.Range(i, list.Count);
+            (list[i], list[r]) = (list[r], list[i]);
         }
     }
-
-    public void WinFunction()
-    {
-        StartCoroutine(MoveWinPanel());
-        particaleEffect.SetActive(true);
-        PlayAudio(audioFile.winAudio);
-        winpanalBestScore.text = "Best Score : " + gamePlayBestScore.text;
-        winPanelCurrentScore.text = "Current Score : " + currentScore;
-        winPanel.SetActive(true);
-        gameplayPanal.SetActive(false);
-        foreach (Transform t in popUpStarts) Instantiate(particaleEffect, t.position, Quaternion.identity);
-    }
-
-    private IEnumerator MoveWinPanel()
-    {
-        winPanel.transform.position = winPanalDownPos.position;
-        float t = 0f;
-        Vector3 start = winPanalDownPos.position;
-        Vector3 end = winPanalCenterPos.position;
-        while (t < 1f)
-        {
-            t += Time.deltaTime;
-            winPanel.transform.position = Vector3.Lerp(start, end, t);
-            yield return null;
-        }
-        nextBtnPopup.SetActive(true);
-    }
-
-    private void PlayAudio(AudioClip clip)
-    {
-        if (clip == null) return;
-        audioSource.PlayOneShot(clip);
-    }
-
-    public void NextBtnFunction()
-    {
-        PlayAudio(audioFile.pop2Sound);
-        GameStartFunction();
-    }
-
-    public void WinPanalToEntryLevel()
-    {
-        winPanel.SetActive(false);
-        gameplayPanal.SetActive(false);
-        levelSelectionPanel.SetActive(true);
-    }
-
-    public void GamePlayToLevelSelection()
-    {
-        gameplayPanal.SetActive(false);
-        levelSelectionPanel.SetActive(true);
-        ClearBoard();
-        hasGameEnded = true;
-        timer = 0f;
-    }
-
-    public void OnApplicationQuit()
-    {
-        if (!hasGameEnded) 
-        {
-            //PlayerPrefs.DeleteKey("SavedGame"); // clear old data
-            SaveGame();
-        }
-    }
-
-}
-
-[System.Serializable]
-public class ExtraVeribals
-{
-    public AudioClip bgmusic, bellAudio, winAudio, seleteLevel, unmatch, countDown, tap;
-    public AudioClip pop1Sound, pop2Sound;
 }

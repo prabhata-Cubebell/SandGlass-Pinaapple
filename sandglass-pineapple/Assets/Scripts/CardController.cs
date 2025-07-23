@@ -1,28 +1,36 @@
 using System;
-using UnityEngine;
-using UnityEngine.UI;
-using UnityEngine.EventSystems;
 using System.Collections;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class CardController : MonoBehaviour, IPointerClickHandler
 {
     public int CardID { get; private set; }
-    public Image cardSpriteRenderer;
 
-    public Image cardCoverSprit;
-    private MemoryMatchGameManager gameManager;
+    [Header("Card Visuals")]
+    [SerializeField] private Image cardSpriteRenderer;
+    [SerializeField] private AudioClip cardTap;
+    [SerializeField] private AudioClip matchSound;
+
+    [HideInInspector] public Sprite frontSprite;
+    [HideInInspector] public Sprite backSprite;
+
     private bool isFlipped = false;
     private bool isResolved = false;
-    private CanvasGroup canvasGroup;
 
-    [SerializeField] private AudioClip CardTap, matched;
     public bool IsResolved => isResolved;
+
+    private MemoryMatchGameManager gameManager;
+    private CanvasGroup canvasGroup;
 
     private void Awake()
     {
         canvasGroup = GetComponent<CanvasGroup>();
-        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
-       // cardCoverSprit = GetComponent<Image>();
+        if (canvasGroup == null)
+        {
+            canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        }
     }
 
     private void OnEnable()
@@ -38,42 +46,48 @@ public class CardController : MonoBehaviour, IPointerClickHandler
     private void Start()
     {
         canvasGroup.blocksRaycasts = false;
-        FlipCard();
-        Invoke(nameof(FlipBack), 1f);
+        FlipCard();                    // Show front on start
+        Invoke(nameof(FlipBack), 1f);  // Then flip back after delay
     }
 
-    public void InitializeCard(int id, Sprite sprite, MemoryMatchGameManager manager, Sprite ownSprit)
+    public void InitializeCard(int id, Sprite front, MemoryMatchGameManager manager, Sprite back)
     {
         CardID = id;
-        cardSpriteRenderer.sprite = sprite;
+        frontSprite = front;
+        backSprite = back;
         gameManager = manager;
-        cardCoverSprit.sprite = ownSprit;
+
+        cardSpriteRenderer.sprite = backSprite; // Start hidden
     }
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!isFlipped && !isResolved)
-        {
-            gameManager.OnCardSelected(this);
-        }
+        if (isFlipped || isResolved) return;
+
+        gameManager.OnCardSelected(this);
+        // Optional: AudioSource.PlayClipAtPoint(cardTap, Camera.main.transform.position);
     }
 
     public void FlipCard()
     {
         isFlipped = true;
-        StartCoroutine(FlipToAngle(180f, 0.5f));
+        StartCoroutine(FlipToAngle(showFront: true, duration: 0.5f));
     }
 
     public void FlipBack()
     {
         isFlipped = false;
-        StartCoroutine(FlipToAngle(0f, 0.5f, () => canvasGroup.blocksRaycasts = true));
+        StartCoroutine(FlipToAngle(showFront: false, duration: 0.5f, () =>
+        {
+            canvasGroup.blocksRaycasts = true;
+        }));
     }
 
     public void ResolveCard()
     {
         isResolved = true;
         StartCoroutine(BounceThenShrink());
+        // Optional: AudioSource.PlayClipAtPoint(matchSound, Camera.main.transform.position);
     }
 
     public void DisableColliderTemporarily()
@@ -91,22 +105,35 @@ public class CardController : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    private IEnumerator FlipToAngle(float targetYAngle, float duration, Action onComplete = null)
+    private IEnumerator FlipToAngle(bool showFront, float duration, Action onComplete = null)
     {
+        float halfDuration = duration / 2f;
         float elapsed = 0f;
-        Vector3 startRotation = transform.eulerAngles;
-        Vector3 endRotation = new Vector3(startRotation.x, targetYAngle, startRotation.z);
 
-        while (elapsed < duration)
+        // Rotate to 90°
+        while (elapsed < halfDuration)
         {
             elapsed += Time.deltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            float yRotation = Mathf.LerpAngle(startRotation.y, endRotation.y, t);
-            transform.eulerAngles = new Vector3(startRotation.x, yRotation, startRotation.z);
+            float yRotation = Mathf.LerpAngle(0f, 90f, elapsed / halfDuration);
+            transform.eulerAngles = new Vector3(0f, yRotation, 0f);
             yield return null;
         }
 
-        transform.eulerAngles = endRotation;
+        // Switch sprite at halfway
+        cardSpriteRenderer.sprite = showFront ? frontSprite : backSprite;
+
+        elapsed = 0f;
+
+        // Finish rotation to 180° or reset to 0°
+        while (elapsed < halfDuration)
+        {
+            elapsed += Time.deltaTime;
+            float yRotation = Mathf.LerpAngle(90f, 180f, elapsed / halfDuration);
+            transform.eulerAngles = new Vector3(0f, yRotation, 0f);
+            yield return null;
+        }
+
+        transform.eulerAngles = new Vector3(0f, showFront ? 180f : 0f, 0f);
         onComplete?.Invoke();
     }
 
@@ -114,44 +141,47 @@ public class CardController : MonoBehaviour, IPointerClickHandler
     {
         Vector3 originalScale = transform.localScale;
         Vector3 bounceScale = originalScale * 1.1f;
+        Vector3 zeroScale = Vector3.zero;
 
         float t = 0f;
-        float duration = 0.3f;
+        float bounceDuration = 0.3f;
 
-        while (t < duration)
+        while (t < bounceDuration)
         {
             t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(originalScale, bounceScale, t / duration);
+            transform.localScale = Vector3.Lerp(originalScale, bounceScale, t / bounceDuration);
             yield return null;
         }
 
         yield return new WaitForSeconds(0.1f);
 
         t = 0f;
-        duration = 0.2f;
-        Vector3 zeroScale = Vector3.zero;
+        float shrinkDuration = 0.2f;
 
-        while (t < duration)
+        while (t < shrinkDuration)
         {
             t += Time.deltaTime;
-            transform.localScale = Vector3.Lerp(bounceScale, zeroScale, t / duration);
+            transform.localScale = Vector3.Lerp(bounceScale, zeroScale, t / shrinkDuration);
             yield return null;
         }
 
-        Destroy(gameObject);
+        // Optional: Destroy(gameObject);
     }
 
     public string GetCardSpriteName()
     {
-        return cardCoverSprit.name; // frontSprite = your visible card image
+        return frontSprite != null ? frontSprite.name : "None";
     }
 
     public void SetCardState(bool flipped, bool matched)
     {
         if (matched)
+        {
             ResolveCard();
+        }
         else if (flipped)
+        {
             FlipCard();
+        }
     }
-
 }
