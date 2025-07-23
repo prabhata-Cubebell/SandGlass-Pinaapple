@@ -274,7 +274,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 146189360}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 752054398}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Btn_DeleteSaveData
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &146189360
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1053,9 +1065,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 752054397}
-        m_TargetAssemblyTypeName: MemoryMatchGameManager, Assembly-CSharp
-        m_MethodName: WinPanalToEntryLevel
+      - m_Target: {fileID: 752054398}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Btn_BackToMenu
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1274,7 +1286,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -1384,6 +1396,7 @@ MonoBehaviour:
   - {fileID: 263826721, guid: 640187882b764ab4e95137e1476fbe9a, type: 3}
   - {fileID: -1915143268, guid: 6ee39365abc9daa44b553a6ca4332b59, type: 3}
   secondsPerPair: 15
+  gameDuration: 0
 --- !u!114 &752054398
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1400,8 +1413,8 @@ MonoBehaviour:
   gameplay: {fileID: 1660818190}
   winPanel: {fileID: 2014824629}
   losePanel: {fileID: 2014824629}
-  savePopup: {fileID: 825067465}
   nextBtnPopup: {fileID: 1283202015}
+  savePopup: {fileID: 825067465}
   txtScore: {fileID: 887186998}
   txtBest: {fileID: 1726662751}
   txtWinScore: {fileID: 897866372}
@@ -1805,7 +1818,7 @@ MonoBehaviour:
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
   m_fontSizeMax: 72
-  m_fontStyle: 0
+  m_fontStyle: 1
   m_HorizontalAlignment: 1
   m_VerticalAlignment: 256
   m_textAlignment: 65535
@@ -2099,9 +2112,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 752054397}
-        m_TargetAssemblyTypeName: MemoryMatchGameManager, Assembly-CSharp
-        m_MethodName: OnApplicationQuit
+      - m_Target: {fileID: 752054398}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Btn_BackToMenu
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2430,9 +2443,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 752054397}
-        m_TargetAssemblyTypeName: MemoryMatchGameManager, Assembly-CSharp
-        m_MethodName: NextBtnFunction
+      - m_Target: {fileID: 752054398}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Btn_NextRound
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -2857,7 +2870,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1451035774}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 752054398}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Btn_LoadGame
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1451035774
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3454,7 +3479,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1940058052}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 752054398}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: Btn_DeleteSaveData
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1940058052
 MonoBehaviour:
   m_ObjectHideFlags: 0

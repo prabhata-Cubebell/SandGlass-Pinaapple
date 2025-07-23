@@ -1,13 +1,15 @@
+using TMPro;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
     [Header("Panels")]
-    [SerializeField] GameObject levelSelect, gameplay, winPanel, losePanel, savePopup, nextBtnPopup;
+    [SerializeField] GameObject levelSelect, gameplay, winPanel, losePanel, nextBtnPopup;
+    public GameObject savePopup;
 
     [Header("Score UI")]
     [SerializeField] TextMeshProUGUI txtScore, txtBest, txtWinScore, txtWinBest;
@@ -44,15 +46,45 @@ public class UIManager : MonoBehaviour
     public void Btn_StartLevel()
     {
                                   // square boards for now
-        MemoryMatchGameManager.Instance.StartLevel(MemoryMatchGameManager.Instance.rows, MemoryMatchGameManager.Instance.columns);
         gameplay.SetActive(true);
         levelSelect.SetActive(false);
+        MemoryMatchGameManager.Instance.StartLevel(MemoryMatchGameManager.Instance.rows, MemoryMatchGameManager.Instance.columns);
         Play(clips.seleteLevel);
     }
 
     public void Btn_SaveGame() => MemoryMatchGameManager.Instance.SaveGame();
-    public void Btn_LoadGame() => MemoryMatchGameManager.Instance.LoadGame();
-    public void Btn_NextRound() => MemoryMatchGameManager.Instance.StartLevel(MemoryMatchGameManager.Instance.rows, MemoryMatchGameManager.Instance.columns);
+    public void Btn_LoadGame() 
+    {
+        gameplay.SetActive(true); 
+        levelSelect.SetActive(false);
+        savePopup.SetActive(false);
+        MemoryMatchGameManager.Instance.LoadGame();
+    }
+
+    public void Btn_NextRound() 
+    {
+        gameplay.SetActive(true);
+        winPanel.SetActive(false);
+        MemoryMatchGameManager.Instance.StartLevel(MemoryMatchGameManager.Instance.rows, MemoryMatchGameManager.Instance.columns);
+    }
+
+    public void Btn_ExitGame()
+    {
+        Application.Quit();
+        MemoryMatchGameManager.Instance.SaveGame();
+    }
+
+    public void OnApplicationQuit()
+    {
+        MemoryMatchGameManager.Instance.SaveGame();
+    }
+
+    public void Btn_DeleteSaveData()
+    {
+        savePopup.SetActive(false);
+        PlayerPrefs.DeleteKey("SavedGame");
+        PlayerPrefs.Save();
+    }
 
     public void Btn_BackToMenu()
     {
@@ -60,6 +92,7 @@ public class UIManager : MonoBehaviour
         gameplay.SetActive(false);
         winPanel.SetActive(false);
         losePanel.SetActive(false);
+        MemoryMatchGameManager.Instance.SaveGame(); // Save current state
     }
 
     /* ---------- event receivers ---------- */

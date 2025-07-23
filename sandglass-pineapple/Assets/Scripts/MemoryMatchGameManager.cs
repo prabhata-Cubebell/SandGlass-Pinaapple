@@ -19,7 +19,7 @@ public class MemoryMatchGameManager : MonoBehaviour
     [SerializeField] List<Sprite> cardCovers;
 
     [Header("Timing")]
-    [SerializeField] float secondsPerPair = 15f;
+    [SerializeField] float secondsPerPair = 0.5f;
     float gameDuration;          // total time for this round
     float timer;                 // countdown
     bool hasGameEnded = true;
@@ -41,6 +41,10 @@ public class MemoryMatchGameManager : MonoBehaviour
         if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
         else { Destroy(gameObject); }
         Debug.unityLogger.logEnabled = false;
+        if (PlayerPrefs.HasKey("SavedGame"))
+        {
+            UIManager.Instance.savePopup.SetActive(true);
+        }
     }
 
     void Update()
@@ -90,15 +94,22 @@ public class MemoryMatchGameManager : MonoBehaviour
     public void LoadGame()
     {
         if (!PlayerPrefs.HasKey("SavedGame")) return;
-        SaveData data = JsonUtility.FromJson<SaveData>(PlayerPrefs.GetString("SavedGame"));
+
+        var data = JsonUtility.FromJson<SaveData>(PlayerPrefs.GetString("SavedGame"));
+
         rows = data.rows;
         columns = data.columns;
         currentScore = data.currentScore;
         gameDuration = (rows * columns / 2f) * secondsPerPair;
         timer = data.timeLeft;
-        BuildBoard(data);                    // restore board state
+
+        BuildBoard(data);             // rebuild cards first
         hasGameEnded = false;
+
+        // --- SYNCH UI IMMEDIATELY ---
         OnScoreChanged?.Invoke(currentScore);
+        OnTimerChanged?.Invoke(timer / gameDuration);   // << this one was missing!
+
     }
 
     /* ===================  GAMEPLAY  =================== */
@@ -236,15 +247,6 @@ public class MemoryMatchGameManager : MonoBehaviour
         hasGameEnded = true;
         OnGameEnded?.Invoke(win);
         PlayerPrefs.DeleteKey("SavedGame");
-    }
-
-    /* ++ utility helpers ++ */
-    static void Shuffle<T>(IList<T> list)
-    {
-        for (int i = 0; i < list.Count; i++)
-        {
-            int r = UnityEngine.Random.Range(i, list.Count);
-            (list[i], list[r]) = (list[r], list[i]);
-        }
+        PlayerPrefs.Save();
     }
 }
