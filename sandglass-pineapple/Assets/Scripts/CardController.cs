@@ -1,25 +1,28 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using System.Collections;
 
-public class CardController : MonoBehaviour
+public class CardController : MonoBehaviour, IPointerClickHandler
 {
     public int CardID { get; private set; }
-    public SpriteRenderer cardSpriteRenderer;
+    public Image cardSpriteRenderer;
 
-    private SpriteRenderer cardCoverSprit;
+    private Image cardCoverSprit;
     private MemoryMatchGameManager gameManager;
     private bool isFlipped = false;
     private bool isResolved = false;
-    private Collider2D cardCollider;
+    private CanvasGroup canvasGroup;
 
     [SerializeField] private AudioClip CardTap, matched;
     public bool IsResolved => isResolved;
 
     private void Awake()
     {
-        cardCollider = GetComponent<Collider2D>();
-        cardCoverSprit = GetComponent<SpriteRenderer>();
+        canvasGroup = GetComponent<CanvasGroup>();
+        if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        cardCoverSprit = GetComponent<Image>();
     }
 
     private void OnEnable()
@@ -34,7 +37,7 @@ public class CardController : MonoBehaviour
 
     private void Start()
     {
-        cardCollider.enabled = false;
+        canvasGroup.blocksRaycasts = false;
         FlipCard();
         Invoke(nameof(FlipBack), 1f);
     }
@@ -47,7 +50,7 @@ public class CardController : MonoBehaviour
         cardCoverSprit.sprite = ownSprit;
     }
 
-    private void OnMouseDown()
+    public void OnPointerClick(PointerEventData eventData)
     {
         if (!isFlipped && !isResolved)
         {
@@ -64,7 +67,7 @@ public class CardController : MonoBehaviour
     public void FlipBack()
     {
         isFlipped = false;
-        StartCoroutine(FlipToAngle(0f, 0.5f, () => cardCollider.enabled = true));
+        StartCoroutine(FlipToAngle(0f, 0.5f, () => canvasGroup.blocksRaycasts = true));
     }
 
     public void ResolveCard()
@@ -75,19 +78,16 @@ public class CardController : MonoBehaviour
 
     public void DisableColliderTemporarily()
     {
-        if (cardCollider != null)
-        {
-            cardCollider.enabled = false;
-            StartCoroutine(EnableColliderAfterDelay(0.5f));
-        }
+        canvasGroup.blocksRaycasts = false;
+        StartCoroutine(EnableColliderAfterDelay(0.5f));
     }
 
     private IEnumerator EnableColliderAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
-        if (cardCollider != null && !isResolved)
+        if (!isResolved)
         {
-            cardCollider.enabled = true;
+            canvasGroup.blocksRaycasts = true;
         }
     }
 
@@ -125,7 +125,7 @@ public class CardController : MonoBehaviour
             yield return null;
         }
 
-        yield return new WaitForSeconds(0.1f); // pause before shrink
+        yield return new WaitForSeconds(0.1f);
 
         t = 0f;
         duration = 0.2f;
