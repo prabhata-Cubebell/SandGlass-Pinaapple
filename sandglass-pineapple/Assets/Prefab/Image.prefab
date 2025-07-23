@@ -129,6 +129,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   cardSpriteRenderer: {fileID: 1738786410485497625}
+  cardCoverSprit: {fileID: 1380884055172164360}
   CardTap: {fileID: 0}
   matched: {fileID: 0}
 --- !u!222 &9179100160593988591

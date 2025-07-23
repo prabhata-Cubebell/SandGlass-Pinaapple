@@ -21,6 +21,11 @@ public class MemoryMatchGameManager : MonoBehaviour
     public TextMeshProUGUI gamePlayBestScore;
     public TextMeshProUGUI winpanalBestScore;
     public TextMeshProUGUI winPanelCurrentScore;
+    public GameObject saveGamePopup;
+    public Button saveGameYesBtn, saveGameNoBtn;
+
+    private bool isGameLoading = false;
+
 
     [Header("Game Objects")]
     public GameObject cardPrefab;
@@ -70,6 +75,7 @@ public class MemoryMatchGameManager : MonoBehaviour
         winPanel.SetActive(false);
         loosePanel.SetActive(false);
         timerBar.gameObject.SetActive(false);
+        saveGamePopup.SetActive(false); // default hidden
 
         gamePlayBestScore.text = PlayerPrefs.GetInt("BestScore", 0).ToString();
         winpanalBestScore.text = gamePlayBestScore.text;
@@ -80,7 +86,23 @@ public class MemoryMatchGameManager : MonoBehaviour
             audioSource.loop = true;
             audioSource.Play();
         }
+
+        // Check for saved game
+        if (PlayerPrefs.HasKey("SavedGame"))
+        {
+            saveGamePopup.SetActive(true);
+            saveGameYesBtn.onClick.AddListener(() => {
+                saveGamePopup.SetActive(false);
+                LoadGame();
+            });
+
+            saveGameNoBtn.onClick.AddListener(() => {
+                saveGamePopup.SetActive(false);
+                PlayerPrefs.DeleteKey("SavedGame"); // clear old data
+            });
+        }
     }
+
 
     private void Update()
     {
@@ -96,6 +118,85 @@ public class MemoryMatchGameManager : MonoBehaviour
         SetGameDuration(rows * columns / 2);
         GameStartFunction();
     }
+    public void SaveGame()
+    {
+        // 1. Delete old saved data if it exists
+        if (PlayerPrefs.HasKey("SavedGame"))
+        {
+            PlayerPrefs.DeleteKey("SavedGame");
+        }
+
+        // 2. Prepare fresh save data
+        SaveData data = new SaveData
+        {
+            rows = rows,
+            columns = columns,
+            currentScore = currentScore,
+            timeLeft = timer,
+            cards = new List<CardSaveData>()
+        };
+
+        foreach (CardController card in activeCards)
+        {
+            if (card == null) continue;
+            CardSaveData cardData = new CardSaveData
+            {
+                cardID = card.CardID,
+                spriteName = card.cardSpriteRenderer.sprite.name,
+                isFlipped = card.cardCoverSprit.gameObject.activeSelf == false,
+                isMatched = card.IsResolved
+            };
+            data.cards.Add(cardData);
+        }
+
+        // 3. Serialize and save
+        string json = JsonUtility.ToJson(data);
+        PlayerPrefs.SetString("SavedGame", json);
+        PlayerPrefs.Save();
+    }
+
+
+
+    public void LoadGame()
+    {
+        if (!PlayerPrefs.HasKey("SavedGame")) return;
+
+        string json = PlayerPrefs.GetString("SavedGame");
+        SaveData data = JsonUtility.FromJson<SaveData>(json);
+        if (data == null) return;
+
+        isGameLoading = true;
+        rows = data.rows;
+        columns = data.columns;
+        currentScore = data.currentScore;
+        timer = data.timeLeft;
+
+        gamePlayCurrentScore.text = currentScore.ToString();
+        levelSelectionPanel.SetActive(false);
+        gameplayPanal.SetActive(true);
+        winPanel.SetActive(false);
+        loosePanel.SetActive(false);
+        nextBtnPopup.SetActive(false);
+        timerBar.gameObject.SetActive(true);
+
+        ClearBoard(); // clean before loading
+
+        SetupBoardLayout();
+        List<CardController> cardList = new List<CardController>();
+
+        foreach (CardSaveData cardData in data.cards)
+        {
+            Sprite frontSprite = cardSprites.Find(s => s.name == cardData.spriteName);
+            CardController card = Instantiate(cardPrefab, gridParent).GetComponent<CardController>();
+            card.InitializeCard(cardData.cardID, frontSprite, this, cardCover[0]);
+            card.SetCardState(cardData.isFlipped, cardData.isMatched);
+            cardList.Add(card);
+        }
+
+        activeCards.AddRange(cardList);
+        isGameLoading = false;
+    }
+
 
     private void SetGameDuration(int numberOfPairs)
     {
@@ -282,6 +383,10 @@ public class MemoryMatchGameManager : MonoBehaviour
 
     private void DisplayEndGameMessage(bool isWin)
     {
+        if (PlayerPrefs.HasKey("SavedGame"))
+        {
+            PlayerPrefs.DeleteKey("SavedGame");
+        }
         hasGameEnded = true;
         timerBar.gameObject.SetActive(false);
         timer = 0f;
@@ -381,6 +486,16 @@ public class MemoryMatchGameManager : MonoBehaviour
         hasGameEnded = true;
         timer = 0f;
     }
+
+    public void OnApplicationQuit()
+    {
+        if (!hasGameEnded) 
+        {
+            //PlayerPrefs.DeleteKey("SavedGame"); // clear old data
+            SaveGame();
+        }
+    }
+
 }
 
 [System.Serializable]

@@ -9,7 +9,7 @@ public class CardController : MonoBehaviour, IPointerClickHandler
     public int CardID { get; private set; }
     public Image cardSpriteRenderer;
 
-    private Image cardCoverSprit;
+    public Image cardCoverSprit;
     private MemoryMatchGameManager gameManager;
     private bool isFlipped = false;
     private bool isResolved = false;
@@ -22,7 +22,7 @@ public class CardController : MonoBehaviour, IPointerClickHandler
     {
         canvasGroup = GetComponent<CanvasGroup>();
         if (canvasGroup == null) canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        cardCoverSprit = GetComponent<Image>();
+       // cardCoverSprit = GetComponent<Image>();
     }
 
     private void OnEnable()
@@ -140,4 +140,18 @@ public class CardController : MonoBehaviour, IPointerClickHandler
 
         Destroy(gameObject);
     }
+
+    public string GetCardSpriteName()
+    {
+        return cardCoverSprit.name; // frontSprite = your visible card image
+    }
+
+    public void SetCardState(bool flipped, bool matched)
+    {
+        if (matched)
+            ResolveCard();
+        else if (flipped)
+            FlipCard();
+    }
+
 }

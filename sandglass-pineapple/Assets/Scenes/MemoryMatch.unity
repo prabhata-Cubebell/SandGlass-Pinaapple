@@ -584,7 +584,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 752054397}
         m_TargetAssemblyTypeName: MemoryMatchGameManager, Assembly-CSharp
-        m_MethodName: GameStartFunction
+        m_MethodName: SetupAndStartGame
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -1308,10 +1308,10 @@ RectTransform:
   m_Children:
   - {fileID: 1064361719}
   - {fileID: 1660818191}
-  - {fileID: 825067466}
   - {fileID: 2014824630}
   - {fileID: 1229894397}
   - {fileID: 2039588019}
+  - {fileID: 825067466}
   m_Father: {fileID: 0}
   m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -1902,6 +1902,9 @@ MonoBehaviour:
   gamePlayBestScore: {fileID: 1726662751}
   winpanalBestScore: {fileID: 732786256}
   winPanelCurrentScore: {fileID: 897866372}
+  saveGamePopup: {fileID: 825067465}
+  saveGameYesBtn: {fileID: 1451035773}
+  saveGameNoBtn: {fileID: 1940058051}
   cardPrefab: {fileID: 7923163459079182788, guid: ce1d0f9b97337a0498310f95a91b7070, type: 3}
   gridParent: {fileID: 1967578298}
   gridLayoutGroup: {fileID: 1967578297}
@@ -1970,7 +1973,7 @@ RectTransform:
   - {fileID: 1940058050}
   - {fileID: 146189358}
   m_Father: {fileID: 484145954}
-  m_RootOrder: 2
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -2721,7 +2724,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 752054397}
         m_TargetAssemblyTypeName: MemoryMatchGameManager, Assembly-CSharp
-        m_MethodName: GamePlayToLevelSelection
+        m_MethodName: OnApplicationQuit
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -3083,7 +3086,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 484145954}
-  m_RootOrder: 4
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
@@ -5132,7 +5135,7 @@ RectTransform:
   - {fileID: 732786255}
   - {fileID: 897866371}
   m_Father: {fileID: 484145954}
-  m_RootOrder: 3
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
@@ -5206,7 +5209,7 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 484145954}
-  m_RootOrder: 5
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
   m_AnchorMax: {x: 0.5, y: 0}
