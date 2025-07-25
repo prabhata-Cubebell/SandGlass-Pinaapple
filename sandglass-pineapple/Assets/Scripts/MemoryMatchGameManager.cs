@@ -40,7 +40,7 @@ public class MemoryMatchGameManager : MonoBehaviour
     {
         if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
         else { Destroy(gameObject); }
-        //Debug.unityLogger.logEnabled = false;
+        Debug.unityLogger.logEnabled = false;
         
     }
 
