@@ -40,7 +40,12 @@ public class MemoryMatchGameManager : MonoBehaviour
     {
         if (Instance == null) { Instance = this; DontDestroyOnLoad(gameObject); }
         else { Destroy(gameObject); }
-        Debug.unityLogger.logEnabled = false;
+        //Debug.unityLogger.logEnabled = false;
+        
+    }
+
+    private void Start()
+    {
         if (PlayerPrefs.HasKey("SavedGame"))
         {
             UIManager.Instance.savePopup.SetActive(true);
